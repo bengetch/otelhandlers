@@ -2,16 +2,22 @@ package logs
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"os"
+
 	"github.com/agoda-com/opentelemetry-logs-go/exporters/otlp/otlplogs"
 	"github.com/agoda-com/opentelemetry-logs-go/exporters/otlp/otlplogs/otlplogsgrpc"
 	"github.com/agoda-com/opentelemetry-logs-go/exporters/stdout/stdoutlogs"
 	sdk "github.com/agoda-com/opentelemetry-logs-go/sdk/logs"
+
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
-func GetLogProvider(exporterType string, otelExporterEndpoint string, serviceName string) (*sdk.LoggerProvider, error, func()) {
+func GetLogProvider(exporterType string, serviceName string) (*sdk.LoggerProvider, error) {
+	/*
+		resolve which log provider to use from the value of exporterType
+	*/
 
 	var logExporter sdk.LogRecordExporter
 	var err error
@@ -21,12 +27,20 @@ func GetLogProvider(exporterType string, otelExporterEndpoint string, serviceNam
 		logExporter, err = stdoutlogs.NewExporter()
 
 	} else if exporterType == "otel" {
+		// get endpoint for collector service from environment
+		collectorEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+		if collectorEndpoint == "" {
+			return nil, errors.New(
+				"failed to configure LoggerProvider: exporterType set to `otel` " +
+					"but environment variable OTEL_EXPORTER_OTLP_ENDPOINT is empty",
+			)
+		}
 		// export logs to an otel collector
 		logExporter, err = otlplogs.NewExporter(
 			context.Background(),
 			otlplogs.WithClient(otlplogsgrpc.NewClient(
 				otlplogsgrpc.WithInsecure(),
-				otlplogsgrpc.WithEndpoint(otelExporterEndpoint)),
+				otlplogsgrpc.WithEndpoint(collectorEndpoint)),
 			))
 
 	} else {
@@ -35,7 +49,7 @@ func GetLogProvider(exporterType string, otelExporterEndpoint string, serviceNam
 	}
 
 	if err != nil {
-		return nil, err, nil
+		return nil, err
 	}
 
 	// instantiate log provider with exporter defined above
@@ -46,9 +60,5 @@ func GetLogProvider(exporterType string, otelExporterEndpoint string, serviceNam
 			semconv.ServiceName(serviceName)),
 		))
 
-	return loggerProvider, nil, func() {
-		if err := loggerProvider.Shutdown(context.Background()); err != nil {
-			fmt.Printf("Error while shutting down Logger provider: %v\n", err)
-		}
-	}
+	return loggerProvider, nil
 }
