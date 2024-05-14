@@ -13,20 +13,16 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-func GetMeterProvider(exporterType string, serviceName string) (*sdkmetric.MeterProvider, error) {
-	/*
-		resolve which meter provider to use from the value of exporterType
-	*/
+func GetExporter(exporterType string) (sdkmetric.Exporter, error) {
 
-	var metricExporter sdkmetric.Exporter
-	var err error
-
+	// send meter output to stdout
 	if exporterType == "stdout" {
-		// export metrics to stdout of this service
-		metricExporter, err = stdoutmetric.New(
-			stdoutmetric.WithPrettyPrint())
+		return stdoutmetric.New(stdoutmetric.WithPrettyPrint())
+	}
 
-	} else if exporterType == "otel" {
+	// send meter output to collector instance
+	if exporterType == "otel" {
+
 		// get endpoint for collector service from environment
 		collectorEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 		if collectorEndpoint == "" {
@@ -35,24 +31,31 @@ func GetMeterProvider(exporterType string, serviceName string) (*sdkmetric.Meter
 					"but environment variable OTEL_EXPORTER_OTLP_ENDPOINT is empty",
 			)
 		}
-		// export metrics to an otel collector
-		metricExporter, err = otlpmetricgrpc.New(context.Background(),
+		return otlpmetricgrpc.New(context.Background(),
 			otlpmetricgrpc.WithInsecure(),
 			otlpmetricgrpc.WithEndpoint(collectorEndpoint),
 		)
-
-	} else {
-		// do not export metrics
-		metricExporter = &NoOpMetricExporter{}
 	}
 
+	// silence meter output
+	return &NoOpMetricExporter{}, nil
+}
+
+func GetProvider(exporterType string, serviceName string) (*sdkmetric.MeterProvider, error) {
+	/*
+		resolve which meter provider to use from the value of exporterType
+	*/
+
+	metricExporter, err := GetExporter(exporterType)
 	if err != nil {
 		return nil, err
 	}
 
 	// instantiate meter provider with exporter defined above
 	meterProvider := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter, sdkmetric.WithInterval(10*time.Second))),
+		sdkmetric.WithReader(
+			sdkmetric.NewPeriodicReader(metricExporter, sdkmetric.WithInterval(10*time.Second)),
+		),
 		sdkmetric.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String(serviceName),

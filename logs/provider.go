@@ -14,19 +14,16 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
-func GetLogProvider(exporterType string, serviceName string) (*sdk.LoggerProvider, error) {
-	/*
-		resolve which log provider to use from the value of exporterType
-	*/
+func GetExporter(exporterType string) (sdk.LogRecordExporter, error) {
 
-	var logExporter sdk.LogRecordExporter
-	var err error
-
+	// send log output to stdout
 	if exporterType == "stdout" {
-		// export logs to stdout of this service
-		logExporter, err = stdoutlogs.NewExporter()
+		return stdoutlogs.NewExporter()
+	}
 
-	} else if exporterType == "otel" {
+	// send log output to collector instance
+	if exporterType == "otel" {
+
 		// get endpoint for collector service from environment
 		collectorEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 		if collectorEndpoint == "" {
@@ -36,18 +33,27 @@ func GetLogProvider(exporterType string, serviceName string) (*sdk.LoggerProvide
 			)
 		}
 		// export logs to an otel collector
-		logExporter, err = otlplogs.NewExporter(
+		return otlplogs.NewExporter(
 			context.Background(),
-			otlplogs.WithClient(otlplogsgrpc.NewClient(
-				otlplogsgrpc.WithInsecure(),
-				otlplogsgrpc.WithEndpoint(collectorEndpoint)),
-			))
-
-	} else {
-		// do not export logs
-		logExporter = &NoOpLogExporter{}
+			otlplogs.WithClient(
+				otlplogsgrpc.NewClient(
+					otlplogsgrpc.WithInsecure(),
+					otlplogsgrpc.WithEndpoint(collectorEndpoint)),
+			),
+		)
 	}
 
+	// silence log output
+	return &NoOpLogExporter{}, nil
+
+}
+
+func GetProvider(exporterType string, serviceName string) (*sdk.LoggerProvider, error) {
+	/*
+		resolve which log provider to use from the value of exporterType
+	*/
+
+	logExporter, err := GetExporter(exporterType)
 	if err != nil {
 		return nil, err
 	}

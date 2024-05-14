@@ -14,20 +14,16 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-func GetTracerProvider(exporterType string, serviceName string) (*sdktrace.TracerProvider, error) {
-	/*
-		resolve which trace provider to use from the value of exporterType
-	*/
+func GetExporter(exporterType string) (sdktrace.SpanExporter, error) {
 
-	var traceExporter sdktrace.SpanExporter
-	var err error
-
+	// send trace output to stdout
 	if exporterType == "stdout" {
-		// export traces to stdout of this service
-		traceExporter, err = stdouttrace.New(
-			stdouttrace.WithPrettyPrint(),
-		)
-	} else if exporterType == "otel" {
+		return stdouttrace.New(stdouttrace.WithPrettyPrint())
+	}
+
+	// send trace output to collector instance
+	if exporterType == "otel" {
+
 		// get endpoint for collector service from environment
 		collectorEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 		if collectorEndpoint == "" {
@@ -36,15 +32,22 @@ func GetTracerProvider(exporterType string, serviceName string) (*sdktrace.Trace
 					"but environment variable OTEL_EXPORTER_OTLP_ENDPOINT is empty",
 			)
 		}
-		// export traces to an otel collector
-		traceExporter, err = otlptrace.New(context.Background(), otlptracegrpc.NewClient(
+		return otlptrace.New(context.Background(), otlptracegrpc.NewClient(
 			otlptracegrpc.WithInsecure(),
 			otlptracegrpc.WithEndpoint(collectorEndpoint),
 		))
-	} else {
-		// if no exporter type is indicated, no spans will be exported
-		traceExporter = &NoOpSpanExporter{}
 	}
+
+	// silence trace output
+	return &NoOpSpanExporter{}, nil
+}
+
+func GetProvider(exporterType string, serviceName string) (*sdktrace.TracerProvider, error) {
+	/*
+		resolve which trace provider to use from the value of exporterType
+	*/
+
+	traceExporter, err := GetExporter(exporterType)
 	if err != nil {
 		return nil, err
 	}
