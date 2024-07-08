@@ -5,26 +5,23 @@ import (
 	"errors"
 	"os"
 
-	"github.com/agoda-com/opentelemetry-logs-go/exporters/otlp/otlplogs"
-	"github.com/agoda-com/opentelemetry-logs-go/exporters/otlp/otlplogs/otlplogsgrpc"
-	"github.com/agoda-com/opentelemetry-logs-go/exporters/stdout/stdoutlogs"
-	sdk "github.com/agoda-com/opentelemetry-logs-go/sdk/logs"
-
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
-func GetExporter(exporterType string) (sdk.LogRecordExporter, error) {
+func GetExporter(exporterType string) (log.Exporter, error) {
 
 	// send log output to stdout
 	if exporterType == "stdout" {
-		return stdoutlogs.NewExporter()
+		return stdoutlog.New(stdoutlog.WithPrettyPrint())
 	}
 
-	// send log output to collector instance
+	// send log output to collector (or datadog agent)
 	if exporterType == "otel" {
 
-		// get endpoint for collector service from environment
 		collectorEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 		if collectorEndpoint == "" {
 			return nil, errors.New(
@@ -32,23 +29,19 @@ func GetExporter(exporterType string) (sdk.LogRecordExporter, error) {
 					"but environment variable OTEL_EXPORTER_OTLP_ENDPOINT is empty",
 			)
 		}
-		// export logs to an otel collector
-		return otlplogs.NewExporter(
+
+		return otlploghttp.New(
 			context.Background(),
-			otlplogs.WithClient(
-				otlplogsgrpc.NewClient(
-					otlplogsgrpc.WithInsecure(),
-					otlplogsgrpc.WithEndpoint(collectorEndpoint)),
-			),
+			otlploghttp.WithInsecure(),
+			otlploghttp.WithEndpoint(collectorEndpoint),
 		)
 	}
 
-	// silence log output
-	return &NoOpLogExporter{}, nil
-
+	// do not send log output anywhere
+	return NoOpLogExporter{}, nil
 }
 
-func GetProvider(exporterType string, serviceName string) (*sdk.LoggerProvider, error) {
+func GetProvider(exporterType string, serviceName string) (*log.LoggerProvider, error) {
 	/*
 		resolve which log provider to use from the value of exporterType
 	*/
@@ -57,14 +50,14 @@ func GetProvider(exporterType string, serviceName string) (*sdk.LoggerProvider, 
 	if err != nil {
 		return nil, err
 	}
-
-	// instantiate log provider with exporter defined above
-	loggerProvider := sdk.NewLoggerProvider(
-		sdk.WithBatcher(logExporter),
-		sdk.WithResource(resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName(serviceName)),
-		))
-
-	return loggerProvider, nil
+	logProvider := log.NewLoggerProvider(
+		log.WithProcessor(log.NewBatchProcessor(logExporter)),
+		log.WithResource(
+			resource.NewWithAttributes(
+				semconv.SchemaURL,
+				semconv.ServiceName(serviceName),
+			),
+		),
+	)
+	return logProvider, nil
 }
