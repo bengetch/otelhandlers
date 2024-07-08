@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -31,9 +31,18 @@ func GetExporter(exporterType string) (sdkmetric.Exporter, error) {
 					"but environment variable OTEL_EXPORTER_OTLP_ENDPOINT is empty",
 			)
 		}
-		return otlpmetricgrpc.New(context.Background(),
-			otlpmetricgrpc.WithInsecure(),
-			otlpmetricgrpc.WithEndpoint(collectorEndpoint),
+
+		/*
+				return otlploghttp.New(
+				context.Background(),
+				otlploghttp.WithInsecure(),
+				otlploghttp.WithEndpoint(collectorEndpoint),
+			)
+		*/
+		return otlpmetrichttp.New(
+			context.Background(),
+			otlpmetrichttp.WithInsecure(),
+			otlpmetrichttp.WithEndpoint(collectorEndpoint),
 		)
 	}
 
