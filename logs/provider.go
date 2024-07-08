@@ -22,11 +22,11 @@ func GetExporter(exporterType string) (log.Exporter, error) {
 	// send log output to collector (or datadog agent)
 	if exporterType == "otel" {
 
-		collectorEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+		collectorEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
 		if collectorEndpoint == "" {
 			return nil, errors.New(
 				"failed to configure LoggerProvider: exporterType set to `otel` " +
-					"but environment variable OTEL_EXPORTER_OTLP_ENDPOINT is empty",
+					"but environment variable OTEL_EXPORTER_OTLP_LOGS_ENDPOINT is empty",
 			)
 		}
 
