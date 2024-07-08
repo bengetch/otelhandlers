@@ -32,13 +32,6 @@ func GetExporter(exporterType string) (sdkmetric.Exporter, error) {
 			)
 		}
 
-		/*
-				return otlploghttp.New(
-				context.Background(),
-				otlploghttp.WithInsecure(),
-				otlploghttp.WithEndpoint(collectorEndpoint),
-			)
-		*/
 		return otlpmetrichttp.New(
 			context.Background(),
 			otlpmetrichttp.WithInsecure(),

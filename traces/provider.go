@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -32,10 +32,11 @@ func GetExporter(exporterType string) (sdktrace.SpanExporter, error) {
 					"but environment variable OTEL_EXPORTER_OTLP_ENDPOINT is empty",
 			)
 		}
-		return otlptrace.New(context.Background(), otlptracegrpc.NewClient(
-			otlptracegrpc.WithInsecure(),
-			otlptracegrpc.WithEndpoint(collectorEndpoint),
-		))
+		return otlptrace.New(context.Background(),
+			otlptracehttp.NewClient(
+				otlptracehttp.WithInsecure(),
+				otlptracehttp.WithEndpoint(collectorEndpoint),
+			))
 	}
 
 	// silence trace output
