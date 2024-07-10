@@ -8,12 +8,12 @@ import (
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
-	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-func GetExporter(exporterType string) (sdkmetric.Exporter, error) {
+func GetExporter(exporterType string) (metric.Exporter, error) {
 
 	// send meter output to stdout
 	if exporterType == "stdout" {
@@ -43,7 +43,7 @@ func GetExporter(exporterType string) (sdkmetric.Exporter, error) {
 	return &NoOpMetricExporter{}, nil
 }
 
-func GetProvider(exporterType string, serviceName string) (*sdkmetric.MeterProvider, error) {
+func GetProvider(exporterType string, serviceName string) (*metric.MeterProvider, error) {
 	/*
 		resolve which meter provider to use from the value of exporterType
 	*/
@@ -54,11 +54,11 @@ func GetProvider(exporterType string, serviceName string) (*sdkmetric.MeterProvi
 	}
 
 	// instantiate meter provider with exporter defined above
-	meterProvider := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(
-			sdkmetric.NewPeriodicReader(metricExporter, sdkmetric.WithInterval(10*time.Second)),
+	meterProvider := metric.NewMeterProvider(
+		metric.WithReader(
+			metric.NewPeriodicReader(metricExporter, metric.WithInterval(10*time.Second)),
 		),
-		sdkmetric.WithResource(resource.NewWithAttributes(
+		metric.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String(serviceName),
 		)),

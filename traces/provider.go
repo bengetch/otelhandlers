@@ -10,11 +10,11 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-func GetExporter(exporterType string) (sdktrace.SpanExporter, error) {
+func GetExporter(exporterType string) (trace.SpanExporter, error) {
 
 	// send trace output to stdout
 	if exporterType == "stdout" {
@@ -43,7 +43,7 @@ func GetExporter(exporterType string) (sdktrace.SpanExporter, error) {
 	return &NoOpSpanExporter{}, nil
 }
 
-func GetProvider(exporterType string, serviceName string) (*sdktrace.TracerProvider, error) {
+func GetProvider(exporterType string, serviceName string) (*trace.TracerProvider, error) {
 	/*
 		resolve which trace provider to use from the value of exporterType
 	*/
@@ -54,9 +54,9 @@ func GetProvider(exporterType string, serviceName string) (*sdktrace.TracerProvi
 	}
 
 	// instantiate tracer provider with exporter defined above
-	tracerProvider := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(traceExporter, sdktrace.WithBatchTimeout(time.Second)),
-		sdktrace.WithResource(resource.NewWithAttributes(
+	tracerProvider := trace.NewTracerProvider(
+		trace.WithBatcher(traceExporter, trace.WithBatchTimeout(time.Second)),
+		trace.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String(serviceName),
 		)),
